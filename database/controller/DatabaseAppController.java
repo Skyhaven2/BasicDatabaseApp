@@ -24,4 +24,9 @@ public class DatabaseAppController
 		return appFrame;
 	}
 	
+	public DatabaseController getDatabase()
+	{
+		return myDBController;
+	}
+	
 }
