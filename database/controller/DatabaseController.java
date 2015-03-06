@@ -239,6 +239,22 @@ public class DatabaseController
 			return 0;
 		}
 	}
+	
+	public int runUPDATEQuery(String query)
+	{
+		try
+		{
+			Statement updateStatement = databaseConnection.createStatement();
+			int rowsAffected = updateStatement.executeUpdate(query);
+			updateStatement.close();
+			return rowsAffected;
+		}
+		catch (SQLException currentSQLError)
+		{
+			displayErrors(currentSQLError);
+			return 0;
+		}
+	}
 
 	/**
 	 * This method returns a String, formatted in a table form, containing all

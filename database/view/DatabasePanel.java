@@ -12,6 +12,8 @@ import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.SpringLayout;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableModel;
@@ -33,6 +35,7 @@ public class DatabasePanel extends JPanel
 	private JButton displayTablesButton;
 	private JTextField tableInputQueryField;
 	private JTextField areaInputQueryField;
+	private DefaultTableModel dataTableModel;
 	
 	public DatabasePanel(DatabaseAppController basecontroller)
 	{
@@ -44,6 +47,7 @@ public class DatabasePanel extends JPanel
 		displayTablesButton = new JButton("Available Tables");
 		dataArea = new JTextArea(10, 50);
 		dataAreaPane = new JScrollPane(dataArea);
+		dataTableModel = new DefaultTableModel();
 		dataTable = new JTable();
 		dataTablePane = new JScrollPane(dataTable);
 		Dimension dataTablePaneDimension = new Dimension(700, 400);
@@ -119,8 +123,46 @@ public class DatabasePanel extends JPanel
 			{
 				String[][] databaseAnswer = basecontroller.getDatabase().runSELECTQueryTwoGetTable(tableInputQueryField.getText());
 				String[] databaseHeaderAnswer = basecontroller.getDatabase().runSELECTQueryTwoGetColumnNames(tableInputQueryField.getText());
-				dataTable.setModel(new DefaultTableModel(databaseAnswer, databaseHeaderAnswer));
+				dataTableModel.setDataVector(databaseAnswer, databaseHeaderAnswer);
+				dataTable.setModel(dataTableModel);
 				tableInputQueryField.setText("");
+			}
+			
+		});
+		
+		dataTableModel.addTableModelListener(new TableModelListener()
+		{
+
+			@Override
+			public void tableChanged(TableModelEvent change)
+			{
+				if(change.getType() == TableModelEvent.UPDATE)
+				{
+					System.out.println("I have been updated");
+					try
+					{
+						int row = change.getFirstRow();
+						int column = change.getColumn();
+						Object newData = dataTableModel.getValueAt(row, column);
+						
+						basecontroller.getDatabase().run
+						
+						System.out.println(Integer.toString(row) + " " + Integer.toString(column) + " " + newData.toString());
+					}
+					catch(Exception currentException)
+					{
+						
+					}
+					
+				}
+				else if(change.getType() == TableModelEvent.INSERT)
+				{
+					System.out.println("I have been inserted");
+				}
+				else if(change.getType() == TableModelEvent.DELETE)
+				{
+					System.out.println("I have been deleteded");
+				}
 			}
 			
 		});
