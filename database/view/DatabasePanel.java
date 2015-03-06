@@ -145,7 +145,10 @@ public class DatabasePanel extends JPanel
 						int column = change.getColumn();
 						Object newData = dataTableModel.getValueAt(row, column);
 						
-						basecontroller.getDatabase().run
+//						basecontroller.getDatabase().runUPDATEQuery("UPDATE " + getDatabaseName + getTable + "SET " + 
+//																	getColumnName + " = `" + newData.toString() + 
+//																	"` WHERE" + `getTable` + `getPrimaryColumnName` + 
+//																	" = " + rowprimaryvalue);
 						
 						System.out.println(Integer.toString(row) + " " + Integer.toString(column) + " " + newData.toString());
 					}
