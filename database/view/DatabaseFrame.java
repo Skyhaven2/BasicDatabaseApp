@@ -22,4 +22,9 @@ public class DatabaseFrame extends JFrame
 		this.setResizable(false);
 		this.setVisible(true);
 	}
+	
+	public DatabasePanel getPanel()
+	{
+		return startPanel;
+	}
 }

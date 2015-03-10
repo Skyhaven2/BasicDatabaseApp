@@ -123,8 +123,7 @@ public class DatabasePanel extends JPanel
 			{
 				String[][] databaseAnswer = basecontroller.getDatabase().runSELECTQueryTwoGetTable(tableInputQueryField.getText());
 				String[] databaseHeaderAnswer = basecontroller.getDatabase().runSELECTQueryTwoGetColumnNames(tableInputQueryField.getText());
-				dataTableModel.setDataVector(databaseAnswer, databaseHeaderAnswer);
-				dataTable.setModel(dataTableModel);
+				refreshTable(databaseAnswer, databaseHeaderAnswer);
 				tableInputQueryField.setText("");
 			}
 			
@@ -136,21 +135,16 @@ public class DatabasePanel extends JPanel
 			@Override
 			public void tableChanged(TableModelEvent change)
 			{
+				//This gets fired when the SELECT statement is sent too!
 				if(change.getType() == TableModelEvent.UPDATE)
 				{
-					System.out.println("I have been updated");
 					try
 					{
 						int row = change.getFirstRow();
 						int column = change.getColumn();
 						Object newData = dataTableModel.getValueAt(row, column);
 						
-//						basecontroller.getDatabase().runUPDATEQuery("UPDATE " + getDatabaseName + getTable + "SET " + 
-//																	getColumnName + " = `" + newData.toString() + 
-//																	"` WHERE" + `getTable` + `getPrimaryColumnName` + 
-//																	" = " + rowprimaryvalue);
-						
-						System.out.println(Integer.toString(row) + " " + Integer.toString(column) + " " + newData.toString());
+						basecontroller.getDatabase().runUPDATEQuery(newData.toString(), column, row);
 					}
 					catch(Exception currentException)
 					{
@@ -198,4 +192,9 @@ public class DatabasePanel extends JPanel
 		
 	}
 	
+	public void refreshTable(String[][] newData, String[] columnHeaders)
+	{
+		dataTableModel.setDataVector(newData, columnHeaders);
+		dataTable.setModel(dataTableModel);
+	}
 }

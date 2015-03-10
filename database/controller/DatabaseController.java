@@ -8,7 +8,7 @@ import javax.swing.JOptionPane;
  * This controls interactions with the database server.
  * 
  * @author Camron Heaps
- * @version 1.2 3/4/2015
+ * @version 1.4 3/10/2015 Continued development of UPDATE method
  */
 public class DatabaseController
 {
@@ -24,6 +24,12 @@ public class DatabaseController
 	 * This is the internal reference to the appController.
 	 */
 	private DatabaseAppController basecontroller;
+	private boolean isEditable;
+	private String primaryKeyColumnName;
+	private String[] columnNames;
+	private String[] columnTableFromNames;
+	private String[] columnDatabaseFromNames;
+	private String[][] tableData;
 
 	/**
 	 * This builds the database controller. It handles connecting to the
@@ -114,21 +120,21 @@ public class DatabaseController
 		String query = "SHOW TABLES FROM ";
 		boolean hasSelectedExistingDatabase = false;
 		String database = "";
-		while(!hasSelectedExistingDatabase)
+		while (!hasSelectedExistingDatabase)
 		{
 			database = JOptionPane.showInputDialog("Which database would you like to search?" + "\n" + this.displayDatabases());
-			
-			if(this.displayDatabases().contains(database))
+
+			if (this.displayDatabases().contains(database))
 			{
-				 hasSelectedExistingDatabase = true;
+				hasSelectedExistingDatabase = true;
 			}
 			else
 			{
-				 JOptionPane.showMessageDialog(null, "Please choose an existing database and write in the format it appears in");
+				JOptionPane.showMessageDialog(null, "Please choose an existing database and write in the format it appears in");
 			}
 		}
 		query += database;
-		
+
 		try
 		{
 			Statement firstStatement = databaseConnection.createStatement();
@@ -239,19 +245,77 @@ public class DatabaseController
 			return 0;
 		}
 	}
-	
-	public int runUPDATEQuery(String query)
+
+	/**
+	 * Finds a cell string value
+	 * 
+	 * @param columnHeaderName
+	 *            The name of the column header of the column to be selected
+	 *            from
+	 * @param row
+	 *            The row to be selected from
+	 * @return A string value of a selected cell
+	 */
+	private String findCellValue(String columnHeaderName, int row)
 	{
-		try
+		String primaryKeyValue = "";
+
+		for (int col = 0; col < columnNames.length; col++)
 		{
-			Statement updateStatement = databaseConnection.createStatement();
-			int rowsAffected = updateStatement.executeUpdate(query);
-			updateStatement.close();
-			return rowsAffected;
+			if (columnNames[col].equals(columnHeaderName))
+			{
+				primaryKeyValue = tableData[row][col];
+			}
 		}
-		catch (SQLException currentSQLError)
+
+		return primaryKeyValue;
+	}
+
+	/**
+	 * This method sends a update query to the database that changes a single cell.
+	 * @param newData The new value to set the cell to
+	 * @param column The column that the new data is located in the 2d string array of database values.
+	 * @param row The row that the new data is located in the 2d string array of database values.
+	 * @return The number of rows affected by the update call. Will return 0 if update failed.
+	 */
+	public int runUPDATEQuery(String newData, int column, int row)
+	{
+		if (isEditable)
 		{
-			displayErrors(currentSQLError);
+			try
+			{
+				DatabaseMetaData metaDataOfDatabase = databaseConnection.getMetaData();
+				ResultSet primaryKeyResultSet = metaDataOfDatabase.getPrimaryKeys(null, null, columnTableFromNames[column]);
+				primaryKeyResultSet.next();
+				primaryKeyColumnName = primaryKeyResultSet.getString("COLUMN_NAME");
+				primaryKeyResultSet.close();
+			}
+			catch (SQLException currentSQLError)
+			{
+				displayErrors(currentSQLError);
+				return 0;
+			}
+
+			String UPDATEquery = ("UPDATE `" + columnDatabaseFromNames[column] + "`.`" + columnTableFromNames[column] + "` SET `" + columnNames[column] + "` = '" + newData + "' WHERE `" + columnTableFromNames[column] + "`.`" + primaryKeyColumnName + "` = " + findCellValue(
+					primaryKeyColumnName, row));
+
+			try
+			{
+				Statement updateStatement = databaseConnection.createStatement();
+				int rowsAffected = updateStatement.executeUpdate(UPDATEquery);
+				updateStatement.close();
+				return rowsAffected;
+			}
+			catch (SQLException currentSQLError)
+			{
+				displayErrors(currentSQLError);
+				return 0;
+			}
+		}
+		else
+		{
+			JOptionPane.showMessageDialog(null, "This is in a non-editable form." + "\n" + "SELECT * FROM table_name is the only editable query.");
+			basecontroller.getFrame().getPanel().refreshTable(tableData, columnNames);
 			return 0;
 		}
 	}
@@ -309,6 +373,8 @@ public class DatabaseController
 	 */
 	public String[][] runSELECTQueryTwoGetTable(String query)
 	{
+		setEditabilty(query);
+		
 		try
 		{
 			Statement SELECTStatement = databaseConnection.createStatement();
@@ -328,12 +394,13 @@ public class DatabaseController
 			}
 			answer.close();
 			SELECTStatement.close();
+			tableData = results;
 			return results;
 		}
 		catch (SQLException currentSQLError)
 		{
 			displayErrors(currentSQLError);
-			return null;
+			return (new String[][] { { "An error occured" } });
 		}
 
 	}
@@ -348,20 +415,25 @@ public class DatabaseController
 	 */
 	public String[] runSELECTQueryTwoGetColumnNames(String query)
 	{
+
 		try
 		{
 			Statement SELECTStatement = databaseConnection.createStatement();
 			ResultSet answer = SELECTStatement.executeQuery(query);
 			ResultSetMetaData metaDataOfAnswer = answer.getMetaData();
 			int numberOfColumns = metaDataOfAnswer.getColumnCount();
-			String[] results = new String[numberOfColumns];
+			columnNames = new String[numberOfColumns];
+			columnTableFromNames = new String[numberOfColumns];
+			columnDatabaseFromNames = new String[numberOfColumns];
 			for (int currentCol = 0; currentCol < numberOfColumns; currentCol++)
 			{
-				results[currentCol] = metaDataOfAnswer.getColumnLabel(currentCol + 1);
+				columnNames[currentCol] = metaDataOfAnswer.getColumnLabel(currentCol + 1);
+				columnTableFromNames[currentCol] = metaDataOfAnswer.getTableName(currentCol + 1);
+				columnDatabaseFromNames[currentCol] = metaDataOfAnswer.getCatalogName(currentCol + 1);
 			}
 			answer.close();
 			SELECTStatement.close();
-			return results;
+			return columnNames;
 		}
 		catch (SQLException currentSQLError)
 		{
@@ -369,10 +441,12 @@ public class DatabaseController
 			return null;
 		}
 	}
-	
+
 	/**
 	 * This method finds the number of rows in a ResultSet
-	 * @param searchResultSet The set to search in.
+	 * 
+	 * @param searchResultSet
+	 *            The set to search in.
 	 * @return The number of rows in the set.
 	 */
 	public int findNumberOfRows(ResultSet searchResultSet)
@@ -389,5 +463,29 @@ public class DatabaseController
 			displayErrors(currentSQLError);
 		}
 		return numberOfRows;
+	}
+	
+	/**
+	 * Finds if the user is allowed to edit the database via the JTable.
+	 * Will set the query received to the lastSELECTQuery received.
+	 * @param query The SELECT query the JTable is based off of.
+	 */
+	public void setEditabilty(String query)
+	{
+		if (query.indexOf(",") == -1)
+		{
+			if (query.toLowerCase().contains("select * from"))
+			{
+				isEditable = true;
+			}
+			else
+			{
+				isEditable = false;
+			}
+		}
+		else
+		{
+			isEditable = false;
+		}
 	}
 }
