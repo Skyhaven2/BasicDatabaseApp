@@ -7,6 +7,7 @@ import java.awt.event.ActionListener;
 
 import javax.swing.JButton;
 import javax.swing.JPanel;
+import javax.swing.JPasswordField;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
@@ -33,9 +34,13 @@ public class DatabasePanel extends JPanel
 	private JButton queryButton;
 	private JButton displayDatabasesButton;
 	private JButton displayTablesButton;
+	private JButton describeTableButton;
+	private JButton insertRowButton;
 	private JTextField tableInputQueryField;
 	private JTextField areaInputQueryField;
 	private DefaultTableModel dataTableModel;
+	private String lastTableSELECTQuery;
+	private JPasswordField passwordField;
 	
 	public DatabasePanel(DatabaseAppController basecontroller)
 	{
@@ -45,6 +50,8 @@ public class DatabasePanel extends JPanel
 		tableQueryButton = new JButton("Send SELECT Query");
 		displayDatabasesButton = new JButton("Available Databases");
 		displayTablesButton = new JButton("Available Tables");
+		describeTableButton = new JButton("Table Info");
+		insertRowButton = new JButton("Insert Row");
 		dataArea = new JTextArea(10, 50);
 		dataAreaPane = new JScrollPane(dataArea);
 		dataTableModel = new DefaultTableModel();
@@ -54,6 +61,8 @@ public class DatabasePanel extends JPanel
 		dataTablePane.setPreferredSize(dataTablePaneDimension);
 		areaInputQueryField = new JTextField(39);
 		tableInputQueryField = new JTextField(49);
+		passwordField = new JPasswordField(null, 20);
+		myLayout.putConstraint(SpringLayout.SOUTH, passwordField, 0, SpringLayout.SOUTH, this);
 		
 		
 		setupPanel();
@@ -76,10 +85,18 @@ public class DatabasePanel extends JPanel
 		this.add(tableInputQueryField);
 		this.add(displayDatabasesButton);
 		this.add(displayTablesButton);
+		this.add(describeTableButton);
+		this.add(insertRowButton);
+		this.add(passwordField);
+		passwordField.setEchoChar('*');
 	}
 	
 	private void setupLayout()
 	{
+		myLayout.putConstraint(SpringLayout.NORTH, describeTableButton, 6, SpringLayout.SOUTH, displayTablesButton);
+		myLayout.putConstraint(SpringLayout.WEST, describeTableButton, 6, SpringLayout.EAST, dataAreaPane);
+		myLayout.putConstraint(SpringLayout.NORTH, insertRowButton, 0, SpringLayout.NORTH, dataTablePane);
+		myLayout.putConstraint(SpringLayout.WEST, insertRowButton, 6, SpringLayout.EAST, dataTablePane);
 		myLayout.putConstraint(SpringLayout.NORTH, queryButton, 6, SpringLayout.SOUTH, dataAreaPane);
 		myLayout.putConstraint(SpringLayout.WEST, queryButton, 0, SpringLayout.WEST, dataAreaPane);
 		myLayout.putConstraint(SpringLayout.WEST, dataTablePane, 0, SpringLayout.WEST, this);
@@ -105,8 +122,7 @@ public class DatabasePanel extends JPanel
 			@Override
 			public void actionPerformed(ActionEvent click)
 			{
-//				String databaseAnswer = basecontroller.getDatabase().describeTable();
-				String databaseAnswer = basecontroller.getDatabase().runSELECTQuery(areaInputQueryField.getText());
+				String databaseAnswer = basecontroller.getDatabase().runSELECTQueryTextArea(areaInputQueryField.getText());
 				dataArea.setText(databaseAnswer);
 				areaInputQueryField.setText("");
 //				int databaseAnswer = basecontroller.getDatabase().runINSERTQuery(areaInputQueryField.getText());
@@ -121,9 +137,10 @@ public class DatabasePanel extends JPanel
 			@Override
 			public void actionPerformed(ActionEvent click)
 			{
-				String[][] databaseAnswer = basecontroller.getDatabase().runSELECTQueryTwoGetTable(tableInputQueryField.getText());
-				String[] databaseHeaderAnswer = basecontroller.getDatabase().runSELECTQueryTwoGetColumnNames(tableInputQueryField.getText());
+				String[][] databaseAnswer = basecontroller.getDatabase().runSELECTQueryTableGetTable(tableInputQueryField.getText());
+				String[] databaseHeaderAnswer = basecontroller.getDatabase().runSELECTQueryTableGetColumnNames(tableInputQueryField.getText());
 				refreshTable(databaseAnswer, databaseHeaderAnswer);
+				lastTableSELECTQuery = tableInputQueryField.getText();
 				tableInputQueryField.setText("");
 			}
 			
@@ -144,21 +161,13 @@ public class DatabasePanel extends JPanel
 						int column = change.getColumn();
 						Object newData = dataTableModel.getValueAt(row, column);
 						
-						basecontroller.getDatabase().runUPDATEQuery(newData.toString(), column, row);
+						basecontroller.getDatabase().runUPDATEQueryTable(newData.toString(), column, row);
 					}
 					catch(Exception currentException)
 					{
 						
 					}
 					
-				}
-				else if(change.getType() == TableModelEvent.INSERT)
-				{
-					System.out.println("I have been inserted");
-				}
-				else if(change.getType() == TableModelEvent.DELETE)
-				{
-					System.out.println("I have been deleteded");
 				}
 			}
 			
@@ -186,6 +195,33 @@ public class DatabasePanel extends JPanel
 				String databaseAnswer = basecontroller.getDatabase().displayTables();
 				dataArea.setText(databaseAnswer);
 				areaInputQueryField.setText("");
+			}
+			
+		});
+		
+		describeTableButton.addActionListener(new ActionListener()
+		{
+
+			@Override
+			public void actionPerformed(ActionEvent click)
+			{
+				String databaseAnswer = basecontroller.getDatabase().describeTable();
+				dataArea.setText(databaseAnswer);
+				areaInputQueryField.setText("");
+			}
+			
+		});
+		
+		insertRowButton.addActionListener(new ActionListener()
+		{
+
+			@Override
+			public void actionPerformed(ActionEvent click)
+			{
+				basecontroller.getDatabase().runINSERTQueryTable();
+				String[][] databaseAnswer = basecontroller.getDatabase().runSELECTQueryTableGetTable(lastTableSELECTQuery);
+				String[] databaseHeaderAnswer = basecontroller.getDatabase().runSELECTQueryTableGetColumnNames(lastTableSELECTQuery);
+				refreshTable(databaseAnswer, databaseHeaderAnswer);
 			}
 			
 		});
