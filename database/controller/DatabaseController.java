@@ -52,6 +52,19 @@ public class DatabaseController
 	 * This is the information used to create the current selected table
 	 */
 	private String[][] tableData;
+	/**
+	 * Each row in the array represent each column in the table data
+	 * col 0 is linked table name
+	 * col 1 is linked column name
+	 * col 2 is the column name of the column it relates to (row 'A' col 2 of foriegnKeyRelationData equals col 'A' of columnNames)
+	 */
+	private String[][] foriegnKeyRelationData;
+	/**
+	 * Contains information of what column contains the most important info for each table
+	 * col 0 is the table name
+	 * col 1 is the most important column name
+	 */
+	private String[][] DandDTableMostImportantColumnNames;
 
 	/**
 	 * This builds the database controller. It handles connecting to the
@@ -65,6 +78,7 @@ public class DatabaseController
 		this.basecontroller = basecontroller;
 		checkDriver();
 		setupConnection();
+		buildDandDMostImportantColumnNames();
 	}
 
 	// Connection and error methods
@@ -90,7 +104,7 @@ public class DatabaseController
 	/**
 	 * Attempts to connect to the database. If fails, displays the error code.
 	 */
-	private void setupConnection()
+	public void setupConnection()
 	{
 		try
 		{
@@ -136,6 +150,18 @@ public class DatabaseController
 			return false;
 		}
 	}
+	
+	private boolean checkForStructureViolation(String currentQuery)
+	{
+		if(currentQuery.toUpperCase().contains(" DATABASE "))
+		{
+			return true;
+		}
+		else
+		{
+			return false;
+		}
+	}
 
 	/**
 	 * Breaks the connection with the database server.
@@ -150,6 +176,22 @@ public class DatabaseController
 		{
 			displayErrors(currentException);
 		}
+	}
+	
+	/**
+	 * This method builds the connection string of the database.
+	 * @param pathToDBServer The path to the server. (localhost)
+	 * @param databaseName The name of the database to connect to
+	 * @param userName The username of the user
+	 * @param password The password of the user
+	 */
+	public void connectionStringBuilder(String pathToDBServer, String databaseName, String userName, String password)
+	{
+		connectionString = "jdbc:mysql://";
+		connectionString += pathToDBServer;
+		connectionString += "/" + databaseName;
+		connectionString += "?user=" + userName;
+		connectionString += "&password=" + password;
 	}
 
 	// Text area methods
@@ -654,6 +696,128 @@ public class DatabaseController
 
 		return listOfDefaultValues;
 	}
+	
+	public String buildSELECTQuery(String tableName)
+	{
+		String SELECTQuery = "SELECT";
+		foriegnKeyRelationData = getForeignKeyRelationData(tableName);
+		boolean columnRecorded = false;
+		
+		for(int col = 0; col < columnNames.length; col++)
+		{
+			for(int row = 0; row < foriegnKeyRelationData.length; row++)
+			{
+				if(columnNames[col].equals(foriegnKeyRelationData[row][2]))
+				{
+					SELECTQuery += " `" + foriegnKeyRelationData[row][0] + "`.`";
+					for(int location = 0; location < DandDTableMostImportantColumnNames.length; location++)
+					{
+						if(foriegnKeyRelationData[row][0].equals(DandDTableMostImportantColumnNames[location][0]))
+						{
+							SELECTQuery += DandDTableMostImportantColumnNames[location][1];
+						}
+					}
+					SELECTQuery += "`";
+					columnRecorded = true;
+				}
+			}
+			if(!columnRecorded)
+			{
+				SELECTQuery += " `" + tableName + "`.`" + columnNames[col] + "`";
+			}
+			columnRecorded = false;
+		}
+		
+		SELECTQuery += " FROM `" + tableName + "`";
+		
+		String tablesAlreadySelected = "";
+		for(int row = 0; row < foriegnKeyRelationData.length; row++)
+		{
+			if(!(tablesAlreadySelected.contains(foriegnKeyRelationData[row][0])))
+			{
+				tablesAlreadySelected += foriegnKeyRelationData[row][0] + " ";
+				SELECTQuery += ", `" + foriegnKeyRelationData[row][0] + "`";
+			}
+		}
+		
+		SELECTQuery += " WHERE ";
+		boolean firstWhereRecorded = false;
+		
+		for(int col = 0; col < columnNames.length; col++)
+		{
+			for(int row = 0; row < foriegnKeyRelationData.length; row++)
+			{
+				if(columnNames[col].equals(foriegnKeyRelationData[row][2]))
+				{
+					if(firstWhereRecorded)
+					{
+						SELECTQuery += "AND ";
+					}
+					SELECTQuery += "`" + foriegnKeyRelationData[row][0] + "`.`" + foriegnKeyRelationData[row][1] + "`";
+					SELECTQuery += " = ";
+					SELECTQuery += "`" + tableName + "`.`" + columnNames[col] + "` ";
+					firstWhereRecorded = true;
+				}
+			}
+		}
+		
+		
+		return SELECTQuery;
+	}
+	
+	private String[][] getForeignKeyRelationData(String tableName)
+	{
+		try
+		{
+			DatabaseMetaData metaDataOfDatabase = databaseConnection.getMetaData();
+			ResultSet foreignKeyResultSet = metaDataOfDatabase.getImportedKeys(null, null, tableName);
+			int numberOfRows = findNumberOfRows(foreignKeyResultSet);
+			String[][] foreignKeyRelations = new String[numberOfRows][3];
+			int row = 0;
+			while(foreignKeyResultSet.next())
+			{	
+				// keyLinkedToTableName
+				foreignKeyRelations[row][0] =  foreignKeyResultSet.getString("PKTABLE_NAME");
+				// keyLinkedToColumnName
+				foreignKeyRelations[row][1] =  foreignKeyResultSet.getString("PKCOLUMN_NAME");
+				// keyColumnNameFromSelectedTable
+				foreignKeyRelations[row][2] =  foreignKeyResultSet.getString("FKCOLUMN_NAME");
+				
+				row++;
+			}
+			foreignKeyResultSet.close();
+			return foreignKeyRelations;
+		}
+		catch (SQLException currentSQLError)
+		{
+			displayErrors(currentSQLError);
+			String[][] emptyArray = new String[0][0];
+			emptyArray[0][0] = "";
+			return emptyArray;
+		}
+	}
+	
+	private String[][] buildDandDMostImportantColumnNames()
+	{
+		DandDTableMostImportantColumnNames = new String[7][2];
+		
+		DandDTableMostImportantColumnNames[0][0] = "characters";
+		DandDTableMostImportantColumnNames[0][1] = "character_name";
+		DandDTableMostImportantColumnNames[1][0] = "classes";
+		DandDTableMostImportantColumnNames[1][1] = "class_name";
+		DandDTableMostImportantColumnNames[2][0] = "cleric_spells";
+		DandDTableMostImportantColumnNames[2][1] = "spell_name";
+		DandDTableMostImportantColumnNames[3][0] = "countries";
+		DandDTableMostImportantColumnNames[3][1] = "country_name";
+		DandDTableMostImportantColumnNames[4][0] = "parent_races";
+		DandDTableMostImportantColumnNames[4][1] = "parent_race";
+		DandDTableMostImportantColumnNames[5][0] = "players";
+		DandDTableMostImportantColumnNames[5][1] = "player_name";
+		DandDTableMostImportantColumnNames[6][0] = "races";
+		DandDTableMostImportantColumnNames[6][1] = "race";
+		
+		return DandDTableMostImportantColumnNames;
+	}
 
 	// JTable Main Methods
 	// --------------------------------------------------------------------------------------------------------------------
@@ -810,6 +974,40 @@ public class DatabaseController
 		{
 			displayErrors(currentSQLError);
 			return null;
+		}
+	}
+	
+	/**
+	 * Method for dropping tables or indices from a database
+	 * @param query The query to be sent to the database
+	 */
+	public void dropStatement(String query)
+	{
+		String results;
+		try
+		{
+			if(checkForStructureViolation(query))
+			{
+				throw new SQLException("You are not allowed to drop a database.", "Code over 9000", Integer.MIN_VALUE);
+			}
+			
+			if(query.toUpperCase().contains(" INDEX "))
+			{
+				results = "The index was dropped";
+			}
+			else
+			{
+				results = "The table was dropped";
+			}
+			
+			Statement dropStatement = databaseConnection.createStatement();
+			int affectedNumber = dropStatement.executeUpdate(query);
+			dropStatement.close();
+			JOptionPane.showMessageDialog(basecontroller.getFrame(), results);
+		}
+		catch(SQLException currentException)
+		{
+			displayErrors(currentException);
 		}
 	}
 }

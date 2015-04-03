@@ -16,7 +16,9 @@ public class DatabaseAppController
 	
 	public void start()
 	{
-		
+		myDBController.runSELECTQueryTableGetTable("SELECT * FROM characters");
+		myDBController.runSELECTQueryTableGetColumnNames("SELECT * FROM characters");
+		System.out.println(myDBController.buildSELECTQuery("characters"));
 	}
 	
 	public DatabaseFrame getFrame()
